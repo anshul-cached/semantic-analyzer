@@ -10,8 +10,8 @@ object SentenceSimilariyCheck {
 	val sc = new SparkContext(sparkConfiguration)
 	val sqlContext=new SQLContext(sc)
 	import sqlContext.implicits._
-	val Array(inputFile,outputFile)=Array(args(0),args(1))
- 	val stopwords = sc.textFile("/stopwords.txt").collect.toSet
+	val Array(inputFile,outputFile,stopwords,googleWord2Vec)=Array(args(0),args(1),args(2),args(3))
+ 	val stopwords = sc.textFile(stopwords).collect.toSet
     
     val bStopwords = sc.broadcast(stopwords)
     
@@ -34,7 +34,7 @@ object SentenceSimilariyCheck {
     val wordPairs = phraseTupple.flatMap(x=>getWordPairs(x._2, x._1._1, x._1._2, bStopwords.value))
     wordPairs.count()
     
-    val w2v = sc.textFile("/GoogleNews-vectors-negative300.tsv")map(line => {
+    val w2v = sc.textFile(googleWord2Vec)map(line => {
             val Array(word, vector) = line.split('\t')
             (word, vector)
         })
@@ -62,9 +62,9 @@ object SentenceSimilariyCheck {
         .map({case ((idx, lword), wmd) => (idx, wmd)})
         .reduceByKey((a, b) => a + b)                    
     
-    // case class PhrasePair(q1: String, q2: String, wmd: Double)
+    
     val results = phraseTupple.map(_.swap).join(bestWMDs).map({case (id, ((s1, s2), wmd)) => (s1, s2, wmd)}).toDF("q1","q2","wmd")
-    // val resultsDF = sqlContext.createDataFrame(results)
+    
     results.write.format("csv").save(outputFile)
 
 
